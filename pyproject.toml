@@ -1,0 +1,17 @@
+[project]
+name = "respiratory-surveillance"
+version = "1.0.0"
+description = "US influenza and COVID-19 hospital admissions surveillance: alerts, forecasts and a live dashboard"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]
+
+[tool.ruff]
+line-length = 140
+target-version = "py311"
+extend-exclude = ["data"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
