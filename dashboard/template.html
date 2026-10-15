@@ -5,144 +5,234 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Respiratory Surveillance</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: a public-health situation board - status line, disease switch, readings, then map beside the selected location's curves */
+/* Layout: analytics console on white - app bar, filter sidebar, 12-column card grid; collapses to one column on phones.
+   Deliberately single-theme (white) as requested. */
 :root {
   color-scheme: light;
-  --bg: #f3f5f7; --surface: #ffffff; --line: #dde2e7; --ink: #111820; --ink-2: #4b5662; --ink-3: #85909b;
-  --flu: #2a78d6; --covid: #eb6834; --accent: var(--flu);
-  --l0: #e8eef5; --l1: #dbe8f8; --l2: #9cc1ec; --l3: #4a90de; --l4: #184f99;
-  --signal: #b42318; --signal-bg: #fde7e5; --good: #1a7f4b;
-  --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
-  --f-data: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --bg: #ffffff; --card: #ffffff; --line: #e6e8ed; --line-2: #f0f2f5; --ink: #0f172a; --ink-2: #475569; --ink-3: #94a3b8;
+  --flu: #2a78d6; --covid: #eb6834; --accent: #2a78d6; --accent-soft: #eaf2fc;
+  --l0: #f1f4f8; --l1: #dbe8f8; --l2: #9cc1ec; --l3: #4a90de; --l4: #184f99;
+  --up: #c2410c; --up-bg: #fff1e8; --down: #15803d; --down-bg: #eaf7ee; --signal: #dc2626; --signal-bg: #fdecec;
+  --f-body: "DM Sans", "Segoe UI", system-ui, sans-serif;
+  --f-data: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --radius: 12px;
 }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #0f1419; --surface: #171d24; --line: #29323c; --ink: #edf1f5; --ink-2: #b3bdc7; --ink-3: #7b8692;
-  --flu: #3987e5; --covid: #d95926;
-  --l0: #1e252d; --l1: #1f3550; --l2: #2b5689; --l3: #3d7fd0; --l4: #8ab8f0;
-  --signal: #f2867b; --signal-bg: #3a1714; --good: #5ccf8f; color-scheme: dark; } }
-:root[data-theme="dark"] {
-  --bg: #0f1419; --surface: #171d24; --line: #29323c; --ink: #edf1f5; --ink-2: #b3bdc7; --ink-3: #7b8692;
-  --flu: #3987e5; --covid: #d95926;
-  --l0: #1e252d; --l1: #1f3550; --l2: #2b5689; --l3: #3d7fd0; --l4: #8ab8f0;
-  --signal: #f2867b; --signal-bg: #3a1714; --good: #5ccf8f; color-scheme: dark; }
 * { box-sizing: border-box; }
-html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body); }
-.wrap { max-width: 1240px; margin: 0 auto; padding-block: 24px 56px; display: grid; gap: 16px;
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); background: var(--bg); }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--f-body); }
+button, select { font: inherit; color: inherit; }
+button:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num, .kpi .val, td.n { font-family: var(--f-data); font-variant-numeric: tabular-nums; }
+
+/* app bar */
+.appbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: rgba(255,255,255,.94); backdrop-filter: saturate(1.4) blur(8px);
+  border-bottom: 1px solid var(--line); }
+.appbar .in { display: flex; align-items: center; gap: 14px; height: 60px; max-width: 1440px; margin: 0 auto;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-h1 { font-size: clamp(26px, 3.6vw, 34px); line-height: 1.15; margin: 2px 0 4px; letter-spacing: -0.01em; text-wrap: balance; }
-h2 { font-size: 17px; margin: 0; text-wrap: balance; }
-p { margin: 0; }
-.label { font-size: 11.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-3); font-weight: 700; }
-.mono, .kpi .v, td.num { font-family: var(--f-data); font-variant-numeric: tabular-nums; }
-.sub { color: var(--ink-2); max-width: 75ch; }
-.bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
-.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
-.seg button { font: inherit; font-size: 14px; padding: 8px 16px; border: 0; background: transparent; color: var(--ink-2); cursor: pointer; display: inline-flex; gap: 8px; align-items: center; }
-.seg button + button { border-left: 1px solid var(--line); }
-.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); font-weight: 700; }
-.seg .sw { width: 10px; height: 10px; border-radius: 50%; }
-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.status { font-size: 13px; color: var(--ink-3); }
-.kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
-.kpi { background: var(--surface); padding: 14px 16px; display: grid; gap: 2px; align-content: start; }
-.kpi .v { font-size: 24px; font-weight: 500; letter-spacing: -0.02em; }
-.kpi .s { font-size: 12.5px; color: var(--ink-3); }
-.kpi .s.up { color: var(--signal); } .kpi .s.down { color: var(--good); }
-.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: grid; gap: 12px; min-width: 0; }
-.head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; justify-content: space-between; }
-.note { font-size: 12.5px; color: var(--ink-3); }
-.main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 16px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15.5px; letter-spacing: -0.01em; white-space: nowrap; }
+.mark { width: 30px; height: 30px; border-radius: 8px; background: var(--ink); display: grid; place-items: center; }
+.crumb { color: var(--ink-3); font-size: 13px; white-space: nowrap; }
+.spacer { flex: 1; }
+.chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--line);
+  font-size: 12.5px; color: var(--ink-2); white-space: nowrap; background: #fff; }
+.chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--down); }
+
+/* shell */
+.shell { display: grid; grid-template-columns: 240px minmax(0, 1fr); max-width: 1440px; margin: 0 auto; }
+.side { border-right: 1px solid var(--line); padding: 20px 16px; position: sticky; top: calc(60px + env(safe-area-inset-top, 0px));
+  align-self: start; height: calc(100vh - 60px); overflow: auto; display: grid; gap: 22px; align-content: start; }
+.side h6 { margin: 0 0 8px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+.dz { display: grid; gap: 6px; }
+.dz button { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--line); background: #fff; cursor: pointer; font-weight: 500; }
+.dz button .sw { width: 10px; height: 10px; border-radius: 3px; }
+.dz button[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); font-weight: 700; }
+.dz small { margin-left: auto; color: var(--ink-3); font-size: 12px; font-weight: 500; font-family: var(--f-data); }
+select { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 10px; background: #fff; cursor: pointer; }
+.nav { display: grid; gap: 2px; }
+.nav a { display: block; padding: 7px 10px; border-radius: 8px; color: var(--ink-2); text-decoration: none; font-weight: 500; }
+.nav a:hover { background: var(--line-2); color: var(--ink); }
+.about { font-size: 12.5px; color: var(--ink-3); line-height: 1.55; margin: 0; }
+.about a { color: var(--ink-2); }
+
+main { padding-block: 22px 48px; display: grid; gap: 16px; min-width: 0;
+  padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
+.pagehead h1 { margin: 0; font-size: 24px; letter-spacing: -0.02em; line-height: 1.2; text-wrap: balance; }
+.pagehead p { margin: 4px 0 0; color: var(--ink-2); max-width: 80ch; }
+
+.grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; min-width: 0; display: grid; gap: 12px; align-content: start; }
+.card-h { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.card-h h2 { margin: 0; font-size: 14.5px; font-weight: 700; letter-spacing: -0.01em; }
+.card-h .meta { font-size: 12px; color: var(--ink-3); }
+.s12 { grid-column: span 12; } .s8 { grid-column: span 8; } .s6 { grid-column: span 6; } .s4 { grid-column: span 4; }
+
+/* KPIs */
+.kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; }
+.kpi { border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px 12px; display: grid; gap: 6px; min-width: 0; align-content: start; }
+.kpi .lab { font-size: 12.5px; color: var(--ink-2); font-weight: 500; }
+.kpi .row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.kpi .val { font-size: 25px; font-weight: 500; letter-spacing: -0.03em; line-height: 1.1; }
+.delta { font-family: var(--f-data); font-size: 11.5px; padding: 2px 7px; border-radius: 6px; font-weight: 500; }
+.delta.up { color: var(--up); background: var(--up-bg); } .delta.down { color: var(--down); background: var(--down-bg); }
+.delta.flat { color: var(--ink-2); background: var(--line-2); }
+.kpi .foot { font-size: 12px; color: var(--ink-3); }
+.spark { width: 100%; height: 34px; display: block; }
+.lvlbar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; gap: 2px; margin-top: 6px; }
+.lvlbar span { display: block; height: 100%; }
+
+/* map */
 .map { width: 100%; height: auto; display: block; }
-.map .st { stroke: var(--surface); stroke-width: 0.8; cursor: pointer; transition: opacity .15s; }
-.map .st:hover { opacity: 0.82; }
-.map .st.sel { stroke: var(--ink); stroke-width: 2.5; }
+.map .st { stroke: #fff; stroke-width: 0.8; cursor: pointer; }
+.map .st:hover { filter: brightness(0.93); }
+.map .sel { stroke: var(--ink); stroke-width: 2.4; }
 .map .lab { font: 700 10.5px var(--f-body); pointer-events: none; text-anchor: middle; dominant-baseline: central; }
-.map .box { stroke: var(--surface); stroke-width: 0.8; cursor: pointer; }
-.map .box.sel { stroke: var(--ink); stroke-width: 2.5; }
+.map .box { stroke: #fff; stroke-width: 0.8; cursor: pointer; }
 .map .lead { stroke: var(--ink-3); stroke-width: 0.6; }
-.map .sig { fill: var(--signal); stroke: var(--surface); stroke-width: 1.5; pointer-events: none; }
-.map .st:focus-visible, .map .box:focus-visible { outline: none; stroke: var(--ink); stroke-width: 2.5; }
-.legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12.5px; color: var(--ink-2); align-items: center; }
+.map .sig { fill: var(--signal); stroke: #fff; stroke-width: 1.5; pointer-events: none; }
+.map [data-loc]:focus-visible { outline: none; stroke: var(--ink); stroke-width: 2.4; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12.5px; color: var(--ink-2); align-items: center; }
 .legend span { display: inline-flex; gap: 6px; align-items: center; }
 .legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
 .legend i.line { height: 3px; width: 18px; border-radius: 2px; }
+.linkbtn { border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 3px 10px; cursor: pointer; font-size: 12.5px; }
+
+/* lists */
+.rank { display: grid; gap: 2px; }
+.rank button { display: grid; grid-template-columns: 22px minmax(0, 1fr) 80px 52px; align-items: center; gap: 10px; padding: 7px 6px; border: 0; border-radius: 8px;
+  background: transparent; cursor: pointer; text-align: left; }
+.rank button:hover { background: var(--line-2); }
+.rank .i { font-family: var(--f-data); font-size: 11.5px; color: var(--ink-3); }
+.rank .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+.rank .tr { height: 6px; background: var(--line-2); border-radius: 3px; overflow: hidden; }
+.rank .tr b { display: block; height: 100%; background: var(--up); border-radius: 3px; }
+.rank .v { font-family: var(--f-data); font-size: 12px; text-align: right; color: var(--up); }
+.empty { color: var(--ink-3); font-size: 13px; padding: 8px 6px; }
+
 .chart { position: relative; height: 300px; }
-.chart.short { height: 240px; }
-.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.chart.short { height: 250px; }
 .scroll { overflow-x: auto; min-width: 0; }
-table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
-th { text-align: left; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-td { padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-th.num, td.num { text-align: right; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th { text-align: left; font-size: 11.5px; color: var(--ink-3); font-weight: 600; padding: 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 8px; border-bottom: 1px solid var(--line-2); white-space: nowrap; }
+th.n, td.n { text-align: right; }
 tr:last-child td { border-bottom: 0; }
-tbody tr { cursor: pointer; }
-tbody tr:hover td { background: var(--bg); }
-.pill { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; font-weight: 700; }
+tbody tr.click { cursor: pointer; } tbody tr.click:hover td { background: var(--line-2); }
+.pill { display: inline-block; font-size: 11.5px; padding: 2px 8px; border-radius: 999px; font-weight: 600; font-family: var(--f-data); }
 .pill.sig { background: var(--signal-bg); color: var(--signal); }
-.lvl { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
-footer { font-size: 12.5px; color: var(--ink-3); display: grid; gap: 4px; }
-a { color: var(--accent); }
-@media (max-width: 1000px) { .main, .grid2 { grid-template-columns: 1fr; } .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .kpi .v { font-size: 20px; } }
+.sq { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.skillbar { display: inline-block; height: 6px; border-radius: 3px; vertical-align: middle; margin-right: 8px; }
+.lvltable td:first-child { font-weight: 500; }
+.take { margin: 0; font-size: 13px; color: var(--ink-2); }
+footer { font-size: 12px; color: var(--ink-3); border-top: 1px solid var(--line); padding-top: 14px; display: grid; gap: 4px; }
+footer a { color: var(--ink-2); }
+
+@media (max-width: 1180px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } .s8, .s4, .s6 { grid-column: span 12; } }
+@media (max-width: 860px) {
+  .shell { grid-template-columns: 1fr; }
+  .side { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .side .nav-wrap, .side .about { display: none; }
+  .crumb, .chip.hide-sm { display: none; }
+  main { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+}
+@media (max-width: 560px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .side { grid-template-columns: 1fr; } .kpi .val { font-size: 21px; } .chart { height: 260px; } }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div class="label">US respiratory surveillance · CDC NHSN hospital admissions</div>
-    <h1 id="title">Respiratory Surveillance</h1>
-    <p class="sub" id="lede"></p>
-  </header>
-
-  <div class="bar">
-    <div class="seg" id="disease" role="group" aria-label="Disease">
-      <button type="button" data-d="flu" aria-pressed="true"><span class="sw" style="background:var(--flu)"></span>Influenza</button>
-      <button type="button" data-d="covid" aria-pressed="false"><span class="sw" style="background:var(--covid)"></span>COVID-19</button>
+<header class="appbar">
+  <div class="in">
+    <div class="brand">
+      <span class="mark" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l3-8 4 16 3-8h6"/></svg></span>
+      Respiratory Surveillance
     </div>
-    <div class="status" id="status"></div>
+    <span class="crumb">United States · CDC NHSN hospital admissions</span>
+    <span class="spacer"></span>
+    <span class="chip" id="weekChip"></span>
+    <span class="chip hide-sm" id="dqChip"></span>
   </div>
+</header>
 
-  <section class="kpis" id="kpis" aria-label="National readings"></section>
+<div class="shell">
+  <aside class="side" aria-label="Filters">
+    <div>
+      <h6>Disease</h6>
+      <div class="dz" id="disease">
+        <button type="button" data-d="flu" aria-pressed="true"><span class="sw" style="background:var(--flu)"></span>Influenza<small id="dzFlu"></small></button>
+        <button type="button" data-d="covid" aria-pressed="false"><span class="sw" style="background:var(--covid)"></span>COVID-19<small id="dzCovid"></small></button>
+      </div>
+    </div>
+    <div>
+      <h6><label for="locSel">Location</label></h6>
+      <select id="locSel"></select>
+    </div>
+    <div class="nav-wrap">
+      <h6>Sections</h6>
+      <nav class="nav">
+        <a href="#overview">Overview</a><a href="#map-card">State map</a><a href="#trend">Trend and forecast</a>
+        <a href="#seasons">Season comparison</a><a href="#signals">Unusual increases</a><a href="#accuracy">Forecast accuracy</a>
+      </nav>
+    </div>
+    <p class="about">Weekly laboratory-confirmed hospital admissions reported to CDC's National Healthcare Safety Network,
+      refreshed every Friday. <a href="https://github.com/madhubuddaraju/respiratory-surveillance">Methods and code</a>.</p>
+  </aside>
 
-  <div class="main">
-    <section class="panel">
-      <div class="head"><h2 id="mapTitle">Activity by state</h2><span class="note">Hover for details, click a state to explore</span></div>
-      <svg class="map" id="map" viewBox="0 0 1010 610" role="group" aria-label="Map of US states colored by activity level"></svg>
-      <div class="legend" id="mapLegend"></div>
+  <main>
+    <section class="pagehead" id="overview">
+      <h1 id="h1"></h1>
+      <p id="lede"></p>
     </section>
-    <section class="panel">
-      <div class="head"><h2 id="tsTitle"></h2><span class="note" id="tsNote"></span></div>
-      <div class="legend"><span><i class="line" style="background:var(--ink)"></i>Reported</span><span><i class="line" style="background:var(--accent)"></i>Median forecast</span><span><i style="background:var(--accent);opacity:.35"></i>50% / 95% interval</span><span><i style="background:var(--signal);border-radius:50%;width:8px;height:8px"></i>Statistical signal</span></div>
-      <div class="chart"><canvas id="ts" role="img" aria-label="Weekly admissions with forecast"></canvas></div>
-      <p class="note" id="tsTake"></p>
-    </section>
-  </div>
 
-  <div class="grid2">
-    <section class="panel">
-      <div class="head"><h2 id="ovTitle"></h2><span class="note">Rate per 100k by week of season</span></div>
-      <div class="legend" id="ovLegend"></div>
-      <div class="chart short"><canvas id="ov" role="img" aria-label="Season comparison"></canvas></div>
-    </section>
-    <section class="panel">
-      <div class="head"><h2>Signals this week</h2><span class="note">EARS C2: z ≥ 3 vs a 7-week baseline with 2-week guard band</span></div>
-      <div class="scroll"><table id="alerts"></table></div>
-    </section>
-  </div>
+    <section class="kpis" id="kpis" aria-label="Key indicators"></section>
 
-  <section class="panel">
-    <div class="head"><h2>How good are the forecasts?</h2><span class="note">Rolling backtest, last 52 weeks, all states</span></div>
-    <div class="scroll"><table id="skill"></table></div>
-    <p class="note">Relative WIS is the weighted interval score (CDC FluSight's scoring rule) divided by a flat-line baseline's. Below 1.00 means more accurate than the baseline.</p>
-  </section>
+    <div class="grid">
+      <section class="card s8" id="map-card">
+        <div class="card-h"><h2 id="mapTitle"></h2><span class="meta">Hover for details · click to filter</span></div>
+        <svg class="map" id="map" viewBox="0 0 1010 610" role="group" aria-label="Map of US states colored by activity level"></svg>
+        <div class="legend" id="mapLegend"></div>
+      </section>
+      <section class="card s4">
+        <div class="card-h"><h2>Fastest rising</h2><span class="meta">2-week growth</span></div>
+        <div class="rank" id="rank"></div>
+      </section>
 
-  <footer>
-    <div id="sources"></div>
-    <div>Hospital reporting was voluntary from May to October 2024, so that window undercounts. Activity levels compare each state's 3-week average with all state-weeks for that disease. Code: <a href="https://github.com/madhubuddaraju/respiratory-surveillance">github.com/madhubuddaraju/respiratory-surveillance</a></div>
-  </footer>
+      <section class="card s8" id="trend">
+        <div class="card-h"><h2 id="tsTitle"></h2><span class="meta" id="tsMeta"></span></div>
+        <div class="legend"><span><i class="line" style="background:var(--ink)"></i>Reported</span><span><i class="line" style="background:var(--accent)"></i>Median forecast</span><span><i style="background:var(--accent);opacity:.3"></i>50% and 95% intervals</span><span><i style="background:var(--signal);border-radius:50%;width:8px;height:8px"></i>Unusual increase</span></div>
+        <div class="chart"><canvas id="ts" role="img" aria-label="Weekly admissions with 4-week forecast"></canvas></div>
+        <p class="take" id="tsTake"></p>
+      </section>
+      <section class="card s4">
+        <div class="card-h"><h2>Activity levels</h2><span class="meta">States and territories</span></div>
+        <div class="lvlbar" id="lvlBar" style="height:12px;margin:0"></div>
+        <table class="lvltable" id="lvlTable"></table>
+        <p class="take">Levels compare each state's 3-week average rate with every state-week on record for this disease.</p>
+      </section>
+
+      <section class="card s6" id="seasons">
+        <div class="card-h"><h2 id="ovTitle"></h2><span class="meta">Per 100k, by week of season</span></div>
+        <div class="legend" id="ovLegend"></div>
+        <div class="chart short"><canvas id="ov" role="img" aria-label="This season compared with past seasons"></canvas></div>
+      </section>
+      <section class="card s6" id="signals">
+        <div class="card-h"><h2>Unusual increases this week</h2><span class="meta">EARS C2, z ≥ 3</span></div>
+        <div class="scroll"><table id="alerts"></table></div>
+      </section>
+
+      <section class="card s12" id="accuracy">
+        <div class="card-h"><h2>Forecast accuracy</h2><span class="meta">Rolling backtest over the last 52 weeks, all states</span></div>
+        <div class="scroll"><table id="skill"></table></div>
+        <p class="take">Relative WIS is the weighted interval score (the rule CDC uses to score FluSight forecasts) divided by a flat-line baseline's. Below 1.00 beats the baseline; shorter bars are better.</p>
+      </section>
+    </div>
+
+    <footer>
+      <div id="sources"></div>
+      <div>Hospital reporting was voluntary from May to October 2024, so that window undercounts. Independent analysis of public CDC data.</div>
+    </footer>
+  </main>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -151,174 +241,237 @@ const D = __DATA__;
 const $ = (id) => document.getElementById(id);
 const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const fmt = (x) => x == null ? "–" : Math.round(x).toLocaleString("en-US");
-const pct = (x) => x == null || !isFinite(x) ? "–" : (x >= 0 ? "+" : "") + Math.round(x * 100) + "%";
+const pct = (x) => x == null || !isFinite(x) ? "–" : (x >= 0 ? "+" : "−") + Math.abs(Math.round(x * 100)) + "%";
 const dateFmt = (s, o = { month: "short", day: "numeric", year: "numeric" }) => new Date(s + "T12:00:00Z").toLocaleDateString("en-US", { ...o, timeZone: "UTC" });
 const LEVELS = ["Low", "Moderate", "High", "Very high"];
 const LV = { "Low": "--l1", "Moderate": "--l2", "High": "--l3", "Very high": "--l4" };
 const NAME = { flu: "Influenza", covid: "COVID-19" };
+const COLOR = { flu: "#2a78d6", covid: "#eb6834" };
+const ARROW = { Increasing: "▲", Decreasing: "▼", Stable: "●" };
+const rgba = (hex, a) => { const n = parseInt(hex.replace("#", ""), 16); return `rgba(${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}, ${a})`; };
 let disease = "flu", loc = "US";
 try { const s = localStorage.getItem("surv-disease"); if (s === "flu" || s === "covid") disease = s; } catch (e) {}
 
-function hexToRgba(hex, a) { const h = hex.replace("#", ""); const n = parseInt(h, 16); return `rgba(${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}, ${a})`; }
-const status = (d) => D.status[d];
-const series = (d, l) => D.series[d][l] || [];
+const status = () => D.status[disease];
+const states = () => Object.values(status()).filter((s) => s.level === "state");
+const locName = (l) => l === "US" ? "United States" : (status()[l]?.name ?? D.geo[l]?.name ?? l);
+const deltaChip = (x) => {
+  if (x == null || !isFinite(x)) return "";
+  const cls = Math.abs(x) < 0.05 ? "flat" : x > 0 ? "up" : "down";
+  return `<span class="delta ${cls}">${pct(x)}</span>`;
+};
 
-function header() {
-  const d = D.diseases[disease];
-  document.documentElement.style.setProperty("--accent", `var(--${disease})`);
-  $("status").textContent = `Week ending ${dateFmt(d.latest)} · refreshed ${D.generated} · ${D.dq_passed}/${D.dq_total} data checks passed`;
-  $("lede").textContent = d.lede;
-  const u = status(disease)["US"];
-  const st = Object.values(status(disease)).filter((s) => s.level === "state");
-  const inc = st.filter((s) => s.trend === "Increasing").length;
-  const sig = st.filter((s) => s.signal).length;
-  const f4 = (D.forecasts[disease]["US"] || []).find((f) => f.h === 4);
-  $("kpis").innerHTML = [
-    ["Admissions this week", fmt(u.admissions), `${pct(u.pct_change_1wk)} vs last week`, u.pct_change_1wk > 0.05 ? "up" : u.pct_change_1wk < -0.05 ? "down" : ""],
-    ["Rate per 100k", u.rate.toFixed(2), `Level: ${u.activity_level}`, ""],
-    ["States trending up", `${inc} / ${st.length}`, "2-week growth ≥ 10%", inc > st.length / 2 ? "up" : ""],
-    ["States with a signal", `${sig}`, "Unusual increase this week", sig > 10 ? "up" : ""],
-    ["4-week forecast", f4 ? fmt(f4.q[3]) : "–", f4 ? `80% range ${fmt(f4.q[1])}–${fmt(f4.q[5])}` : "", ""],
-  ].map(([l, v, s, c]) => `<div class="kpi"><span class="label">${l}</span><span class="v">${v}</span><span class="s ${c}">${s}</span></div>`).join("");
-  document.querySelectorAll("#disease button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.d === disease));
+function spark(values, color) {
+  const pts = values.map((y, i) => [i, y]).filter(([, y]) => y != null);
+  if (pts.length < 2) return "";
+  const w = 200, h = 34, ys = pts.map(([, y]) => y), max = Math.max(...ys), min = Math.min(...ys);
+  const X = (i) => (i / (values.length - 1)) * (w - 6) + 3, Y = (y) => h - 3 - ((y - min) / (max - min || 1)) * (h - 8);
+  const line = pts.map(([i, y]) => `${X(i).toFixed(1)},${Y(y).toFixed(1)}`).join(" ");
+  const [li, ly] = pts[pts.length - 1];
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
+    <polygon points="${X(pts[0][0]).toFixed(1)},${h} ${line} ${X(li).toFixed(1)},${h}" fill="${rgba(color, 0.1)}"/>
+    <polyline points="${line}" fill="none" stroke="${color}" stroke-width="1.8" vector-effect="non-scaling-stroke"/>
+    <circle cx="${X(li)}" cy="${Y(ly)}" r="2.8" fill="${color}"/></svg>`;
 }
 
-// small north-eastern states get labelled boxes in a column to the right, with leader lines
-const CALLOUTS = ["50", "33", "25", "44", "09", "34", "10", "24", "11"];
+function header() {
+  const acc = COLOR[disease];
+  document.documentElement.style.setProperty("--accent", acc);
+  $("weekChip").textContent = `Week ending ${dateFmt(D.diseases[disease].latest)}`;
+  $("dqChip").innerHTML = `<span class="dot"></span>${D.dq_passed}/${D.dq_total} data checks · updated ${D.generated}`;
+  document.querySelectorAll("#disease button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.d === disease));
+  $("dzFlu").textContent = fmt(D.status.flu.US.admissions);
+  $("dzCovid").textContent = fmt(D.status.covid.US.admissions);
+  $("h1").textContent = `${NAME[disease]} · ${locName(loc)}`;
+  $("lede").textContent = loc === "US" ? D.diseases[disease].lede : stateLede();
+}
+
+function stateLede() {
+  const s = status()[loc];
+  if (!s) return "No data reported for this location this week.";
+  return `${fmt(s.admissions)} admissions in the week ending ${dateFmt(D.diseases[disease].latest)} (${s.rate.toFixed(2)} per 100k), ${pct(s.pct_change_1wk)} on the week. Activity is ${s.activity_level.toLowerCase()} and ${s.trend.toLowerCase()}${s.signal ? `, with a statistically unusual increase (z = ${s.z.toFixed(1)})` : ""}.`;
+}
+
+function kpis() {
+  const s = status()[loc], series = D.series[disease][loc] || [];
+  const last12 = series.slice(-12);
+  const pop = s && s.rate ? s.admissions / s.rate * 1e5 : null;
+  const rates = pop ? last12.map((v) => v == null ? null : v / pop * 1e5) : [];
+  const acc = COLOR[disease];
+  const st = states();
+  const counts = LEVELS.map((l) => st.filter((x) => x.activity_level === l).length);
+  const rising = st.filter((x) => x.trend === "Increasing").length;
+  const sig = st.filter((x) => x.signal);
+  const f = (D.forecasts[disease][loc] || []).find((x) => x.h === 4);
+  const fChange = f && s && s.admissions ? f.q[3] / s.admissions - 1 : null;
+  const cards = [
+    { lab: "Weekly admissions", val: fmt(s?.admissions), delta: deltaChip(s?.pct_change_1wk), foot: "vs previous week · last 12 weeks", extra: spark(last12, acc) },
+    { lab: "Rate per 100,000", val: s ? s.rate.toFixed(2) : "–", delta: "", foot: s ? `Activity level: ${s.activity_level}` : "", extra: spark(rates, acc) },
+    { lab: "States trending up", val: `${rising}<span style="font-size:15px;color:var(--ink-3)"> / ${st.length}</span>`, delta: "", foot: "Activity mix, low to very high",
+      extra: `<div class="lvlbar">${counts.map((c, i) => c ? `<span style="width:${c / st.length * 100}%;background:var(${LV[LEVELS[i]]})" title="${LEVELS[i]}: ${c}"></span>` : "").join("")}</div>` },
+    { lab: "Unusual increases", val: `${sig.length}`, delta: "", foot: sig.length ? [...sig].sort((a, b) => b.z - a.z).slice(0, 6).map((x) => x.state).join(" · ") + (sig.length > 6 ? ` +${sig.length - 6}` : "") : "None this week", extra: "" },
+    { lab: "Forecast, 4 weeks out", val: f ? fmt(f.q[3]) : "–", delta: deltaChip(fChange), foot: f ? `80% range ${fmt(f.q[1])}–${fmt(f.q[5])}` : "", extra: "" },
+  ];
+  $("kpis").innerHTML = cards.map((c) => `<div class="kpi"><span class="lab">${c.lab}</span><div class="row"><span class="val">${c.val}</span>${c.delta}</div>${c.extra}<span class="foot">${c.foot}</span></div>`).join("");
+}
+
+// ---- map ----------------------------------------------------------------------------
+const CALLOUTS = ["50", "33", "25", "44", "09", "34", "10", "24", "11"];  // small north-eastern states, labelled at the side
 function drawMap() {
-  const st = status(disease);
-  const arrow = { Increasing: "▲", Decreasing: "▼", Stable: "●" };
+  const st = status();
   const fill = (s) => s ? `var(${LV[s.activity_level]})` : "var(--l0)";
   const ink = (s) => s && LEVELS.indexOf(s.activity_level) >= 2 ? "#fff" : "var(--ink)";
-  const tip = (s, name) => s ? `${s.name}: ${s.activity_level}, ${s.trend.toLowerCase()}, ${fmt(s.admissions)} admissions (${s.rate.toFixed(2)} per 100k)${s.signal ? ", unusual increase" : ""}` : `${name}: no data`;
-  const parts = [];
+  const tip = (s, name) => s ? `${s.name}: ${s.activity_level}, ${s.trend.toLowerCase()} · ${fmt(s.admissions)} admissions (${s.rate.toFixed(2)} per 100k)${s.signal ? " · unusual increase" : ""}` : `${name}: no data`;
+  const p = [];
   for (const [fips, g] of Object.entries(D.geo)) {
     const s = st[fips];
-    parts.push(`<path class="st ${fips === loc ? "sel" : ""}" data-loc="${fips}" d="${g.d}" style="fill:${fill(s)}" tabindex="0" role="button" aria-label="${tip(s, g.name)}"><title>${tip(s, g.name)}</title></path>`);
+    p.push(`<path class="st" data-loc="${fips}" d="${g.d}" style="fill:${fill(s)}" tabindex="0" role="button" aria-label="${tip(s, g.name)}"><title>${tip(s, g.name)}</title></path>`);
   }
-  const sel = D.geo[loc];
-  if (sel) parts.push(`<path class="st sel" d="${sel.d}" style="fill:none;pointer-events:none"></path>`);  // selected outline on top
+  if (D.geo[loc]) p.push(`<path class="sel" d="${D.geo[loc].d}" style="fill:none;pointer-events:none"></path>`);
   for (const [fips, g] of Object.entries(D.geo)) {
     const s = st[fips];
     if (CALLOUTS.includes(fips) || !s) continue;
     const [x, y] = g.label;
-    parts.push(`<text class="lab" x="${x}" y="${y}" style="fill:${ink(s)}">${s.state}${g.size > 40 ? " " + arrow[s.trend] : ""}</text>`);
-    if (s.signal) parts.push(`<circle class="sig" cx="${x + (g.size > 40 ? 17 : 11)}" cy="${y - 8}" r="4"></circle>`);
+    p.push(`<text class="lab" x="${x}" y="${y}" style="fill:${ink(s)}">${s.state}${g.size > 40 ? " " + ARROW[s.trend] : ""}</text>`);
+    if (s.signal) p.push(`<circle class="sig" cx="${x + (g.size > 40 ? 17 : 11)}" cy="${y - 8}" r="4"></circle>`);
   }
+  const box = (fips, bx, by, label) => {
+    const s = st[fips];
+    p.push(`<rect class="box ${fips === loc ? "sel" : ""}" data-loc="${fips}" x="${bx}" y="${by}" width="44" height="22" rx="5" style="fill:${fill(s)}" tabindex="0" role="button" aria-label="${tip(s, label)}"><title>${tip(s, label)}</title></rect>`);
+    if (s) p.push(`<text class="lab" x="${bx + 22}" y="${by + 11}" style="fill:${ink(s)}">${s.state} ${ARROW[s.trend]}</text>`);
+    if (s?.signal) p.push(`<circle class="sig" cx="${bx + 44}" cy="${by}" r="4"></circle>`);
+  };
   CALLOUTS.forEach((fips, i) => {
-    const s = st[fips], g = D.geo[fips];
-    if (!g) return;
+    const g = D.geo[fips]; if (!g) return;
     const bx = 958, by = 150 + i * 30;
-    parts.push(`<line class="lead" x1="${g.label[0]}" y1="${g.label[1]}" x2="${bx}" y2="${by + 11}"></line>`);
-    parts.push(`<rect class="box ${fips === loc ? "sel" : ""}" data-loc="${fips}" x="${bx}" y="${by}" width="44" height="22" rx="4" style="fill:${fill(s)}" tabindex="0" role="button" aria-label="${tip(s, g.name)}"><title>${tip(s, g.name)}</title></rect>`);
-    if (s) parts.push(`<text class="lab" x="${bx + 22}" y="${by + 11}" style="fill:${ink(s)}">${s.state} ${arrow[s.trend]}</text>`);
-    if (s?.signal) parts.push(`<circle class="sig" cx="${bx + 44}" cy="${by}" r="4"></circle>`);
+    p.push(`<line class="lead" x1="${g.label[0]}" y1="${g.label[1]}" x2="${bx}" y2="${by + 11}"></line>`);
+    box(fips, bx, by, g.name);
   });
-  // Puerto Rico inset
-  const pr = st["72"];
-  if (pr) {
-    parts.push(`<rect class="box ${loc === "72" ? "sel" : ""}" data-loc="72" x="870" y="560" width="44" height="22" rx="4" style="fill:${fill(pr)}" tabindex="0" role="button" aria-label="${tip(pr, "Puerto Rico")}"><title>${tip(pr, "Puerto Rico")}</title></rect>`);
-    parts.push(`<text class="lab" x="892" y="571" style="fill:${ink(pr)}">PR ${arrow[pr.trend]}</text>`);
-    if (pr.signal) parts.push(`<circle class="sig" cx="914" cy="560" r="4"></circle>`);
-  }
-  $("map").innerHTML = parts.join("");
+  if (st["72"]) box("72", 870, 560, "Puerto Rico");
+  $("map").innerHTML = p.join("");
   $("mapTitle").textContent = `${NAME[disease]} activity by state`;
   $("mapLegend").innerHTML = LEVELS.map((l) => `<span><i style="background:var(${LV[l]})"></i>${l}</span>`).join("") +
-    `<span>▲ rising ● stable ▼ falling</span><span><i style="background:var(--signal);border-radius:50%;width:8px;height:8px"></i>unusual increase</span>`;
-  if (loc !== "US") $("mapLegend").innerHTML += `<span><button type="button" id="usBtn" style="font:inherit;font-size:12.5px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:2px 8px;cursor:pointer">Show United States</button></span>`;
+    `<span>▲ rising · ● stable · ▼ falling</span><span><i style="background:var(--signal);border-radius:50%;width:8px;height:8px"></i>Unusual increase</span>` +
+    (loc !== "US" ? `<span><button type="button" class="linkbtn" id="usBtn">Show United States</button></span>` : "");
   $("usBtn")?.addEventListener("click", () => select("US"));
 }
 $("map").addEventListener("click", (e) => { const t = e.target.closest("[data-loc]"); if (t) select(t.dataset.loc); });
 $("map").addEventListener("keydown", (e) => { if (e.key !== "Enter" && e.key !== " ") return; const t = e.target.closest("[data-loc]"); if (t) { e.preventDefault(); select(t.dataset.loc); } });
 
-const charts = {};
-function axes(yTitle) {
-  const g = css("--line"), t = css("--ink-2");
-  return { x: { grid: { display: false }, border: { color: g }, ticks: { color: t, maxRotation: 0, autoSkipPadding: 20 } },
-           y: { grid: { color: g, drawTicks: false }, border: { display: false }, beginAtZero: true, ticks: { color: t, padding: 8 },
-                title: { display: true, text: yTitle, color: css("--ink-3") } } };
+function drawRank() {
+  const r = states().filter((s) => s.growth != null && s.growth > 0).sort((a, b) => b.growth - a.growth).slice(0, 10);
+  const max = Math.max(...r.map((s) => s.growth), 0.01);
+  $("rank").innerHTML = r.length ? r.map((s, i) => `<button type="button" data-loc="${s.location}" title="${s.name}: ${pct(s.growth)} over 2 weeks">
+      <span class="i">${i + 1}</span><span class="nm">${s.name}</span><span class="tr"><b style="width:${s.growth / max * 100}%"></b></span><span class="v">${pct(s.growth)}</span></button>`).join("")
+    : `<div class="empty">No state is rising this week.</div>`;
 }
-const tip = () => ({ backgroundColor: css("--surface"), titleColor: css("--ink"), bodyColor: css("--ink-2"), borderColor: css("--line"), borderWidth: 1, padding: 10 });
+$("rank").addEventListener("click", (e) => { const b = e.target.closest("[data-loc]"); if (b) select(b.dataset.loc); });
 
-function drawSeries() {
-  const s = series(disease, loc), weeks = D.weeks[disease];
-  const n = 52, start = Math.max(0, weeks.length - n);
+function drawLevels() {
+  const st = states();
+  $("lvlBar").innerHTML = LEVELS.map((l) => { const n = st.filter((s) => s.activity_level === l).length; return n ? `<span style="width:${n / st.length * 100}%;background:var(${LV[l]})"></span>` : ""; }).join("");
+  $("lvlTable").innerHTML = "<thead><tr><th>Level</th><th class='n'>States</th><th>Highest rates</th></tr></thead><tbody>" +
+    LEVELS.slice().reverse().map((l) => { const list = st.filter((s) => s.activity_level === l).sort((a, b) => b.rate - a.rate);
+      return `<tr><td><span class="sq" style="background:var(${LV[l]})"></span>${l}</td><td class="n">${list.length}</td>
+      <td style="white-space:normal;color:var(--ink-2)">${list.slice(0, 5).map((s) => s.state).join(", ") || "–"}</td></tr>`; }).join("") + "</tbody>";
+}
+
+// ---- charts -------------------------------------------------------------------------
+const charts = {};
+const axes = (yTitle) => ({
+  x: { grid: { display: false }, border: { color: "#e6e8ed" }, ticks: { color: "#64748b", maxRotation: 0, autoSkipPadding: 22, font: { size: 11.5 } } },
+  y: { grid: { color: "#f0f2f5", drawTicks: false }, border: { display: false }, beginAtZero: true, ticks: { color: "#64748b", padding: 8, font: { size: 11.5 } },
+       title: { display: !!yTitle, text: yTitle, color: "#94a3b8", font: { size: 11.5 } } },
+});
+const tip = { backgroundColor: "#0f172a", titleColor: "#fff", bodyColor: "#e2e8f0", padding: 10, cornerRadius: 8, displayColors: false };
+Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+
+function drawTrend() {
+  const s = D.series[disease][loc] || [], weeks = D.weeks[disease];
+  const start = Math.max(0, weeks.length - 52);
   const hist = weeks.slice(start).map((w, i) => ({ w, y: s[start + i] }));
   const fc = D.forecasts[disease][loc] || [];
   const labels = [...hist.map((h) => h.w), ...fc.map((f) => f.t)];
   const pad = (arr) => [...Array(hist.length - 1).fill(null), hist[hist.length - 1].y, ...arr];
-  const acc = css(`--${disease}`);
-  const sigWeeks = new Set((D.signals[disease][loc] || []));
-  const ds = [
-    { label: "95% upper", data: pad(fc.map((f) => f.q[6])), borderWidth: 0, pointRadius: 0, fill: false },
-    { label: "95% lower", data: pad(fc.map((f) => f.q[0])), borderWidth: 0, pointRadius: 0, fill: "-1", backgroundColor: hexToRgba(acc, 0.14) },
-    { label: "50% upper", data: pad(fc.map((f) => f.q[4])), borderWidth: 0, pointRadius: 0, fill: false },
-    { label: "50% lower", data: pad(fc.map((f) => f.q[2])), borderWidth: 0, pointRadius: 0, fill: "-1", backgroundColor: hexToRgba(acc, 0.32) },
-    { label: "Median forecast", data: pad(fc.map((f) => f.q[3])), borderColor: acc, borderDash: [5, 4], borderWidth: 2, pointRadius: 0 },
-    { label: "Reported", data: [...hist.map((h) => h.y), ...fc.map(() => null)], borderColor: css("--ink"), borderWidth: 2,
-      pointRadius: hist.map((h) => sigWeeks.has(h.w) ? 4 : 0).concat(fc.map(() => 0)), pointBackgroundColor: css("--signal"), pointBorderColor: css("--surface") },
-  ];
+  const acc = COLOR[disease];
+  const sig = new Set(D.signals[disease][loc] || []);
+  const band = (a) => ({ borderWidth: 0, pointRadius: 0, fill: "-1", backgroundColor: rgba(acc, a) });
   charts.ts?.destroy();
-  charts.ts = new Chart($("ts"), { type: "line", data: { labels, datasets: ds }, options: { responsive: true, maintainAspectRatio: false, animation: false,
-    interaction: { mode: "index", intersect: false }, spanGaps: false,
-    plugins: { legend: { display: false }, tooltip: { ...tip(), filter: (i) => ["Reported", "Median forecast"].includes(i.dataset.label) && i.parsed.y != null,
-      callbacks: { title: (i) => "Week ending " + dateFmt(i[0].label), label: (c) => ` ${c.dataset.label}: ${fmt(c.parsed.y)}`,
-        afterBody: (items) => { const i = items[0].dataIndex - hist.length; if (i < 0 || !fc[i]) return ""; return `80% interval: ${fmt(fc[i].q[1])}–${fmt(fc[i].q[5])}`; } } } },
-    scales: { ...axes("Weekly admissions"), x: { ...axes().x, ticks: { ...axes().x.ticks, callback(v) { const l = this.getLabelForValue(v); return dateFmt(l, { month: "short", year: "2-digit" }); } } } } } });
-  const st = status(disease)[loc];
-  const nm = loc === "US" ? "United States" : st?.name;
-  $("tsTitle").textContent = `${nm}: weekly admissions and 4-week forecast`;
-  $("tsNote").textContent = st ? `${st.activity_level} · ${st.trend.toLowerCase()}` : "";
+  charts.ts = new Chart($("ts"), { type: "line", data: { labels, datasets: [
+    { label: "hi95", data: pad(fc.map((f) => f.q[6])), borderWidth: 0, pointRadius: 0, fill: false },
+    { label: "lo95", data: pad(fc.map((f) => f.q[0])), ...band(0.12) },
+    { label: "hi50", data: pad(fc.map((f) => f.q[4])), borderWidth: 0, pointRadius: 0, fill: false },
+    { label: "lo50", data: pad(fc.map((f) => f.q[2])), ...band(0.28) },
+    { label: "Median forecast", data: pad(fc.map((f) => f.q[3])), borderColor: acc, borderDash: [5, 4], borderWidth: 2, pointRadius: 0 },
+    { label: "Reported", data: [...hist.map((h) => h.y), ...fc.map(() => null)], borderColor: "#0f172a", borderWidth: 2, tension: 0.25,
+      pointRadius: [...hist.map((h) => sig.has(h.w) ? 4 : 0), ...fc.map(() => 0)], pointBackgroundColor: "#dc2626", pointBorderColor: "#fff", pointBorderWidth: 1.5 },
+  ] }, options: { responsive: true, maintainAspectRatio: false, animation: false, interaction: { mode: "index", intersect: false },
+    plugins: { legend: { display: false }, tooltip: { ...tip, filter: (i) => ["Reported", "Median forecast"].includes(i.dataset.label) && i.parsed.y != null,
+      callbacks: { title: (i) => "Week ending " + dateFmt(i[0].label), label: (c) => `${c.dataset.label}: ${fmt(c.parsed.y)}`,
+        afterBody: (it) => { const k = it[0].dataIndex - hist.length; return k >= 0 && fc[k] ? `80% interval: ${fmt(fc[k].q[1])}–${fmt(fc[k].q[5])}` : ""; } } } },
+    scales: { ...axes("Weekly admissions"), x: { ...axes().x, ticks: { ...axes().x.ticks, callback(v) { return dateFmt(this.getLabelForValue(v), { month: "short", year: "2-digit" }); } } } } } });
+  const st = status()[loc];
+  $("tsTitle").textContent = `Weekly admissions and 4-week forecast · ${locName(loc)}`;
+  $("tsMeta").textContent = st ? `${st.activity_level} · ${st.trend.toLowerCase()}` : "";
   const f4 = fc.find((f) => f.h === 4);
-  $("tsTake").textContent = st && f4 ? `${fmt(st.admissions)} admissions in the week ending ${dateFmt(D.diseases[disease].latest)} (${pct(st.pct_change_1wk)} on the week). Forecast for ${dateFmt(f4.t)}: ${fmt(f4.q[3])}, with an 80% chance of ${fmt(f4.q[1])}–${fmt(f4.q[5])}.` : "";
+  $("tsTake").textContent = f4 ? `Median forecast for the week ending ${dateFmt(f4.t)}: ${fmt(f4.q[3])} admissions, with an 80% chance of ${fmt(f4.q[1])}–${fmt(f4.q[5])}.` : "";
 }
 
 function drawOverlay() {
-  const ov = (D.overlay[disease][loc] || {});
+  const ov = D.overlay[disease][loc] || {};
   const seasons = Object.keys(ov).sort();
-  const cur = seasons[seasons.length - 1];
-  const acc = css(`--${disease}`), grey = css("--ink-3");
-  const past = seasons.slice(0, -1);
-  const ds = past.map((s, i) => ({ label: s, data: ov[s].map(([w, r]) => ({ x: w, y: r })), borderColor: hexToRgba(grey.startsWith("#") ? grey : "#85909b", 0.35 + 0.5 * (i + 1) / past.length), borderWidth: 1.4, pointRadius: 0 }));
-  ds.push({ label: `${cur} (current)`, data: ov[cur].map(([w, r]) => ({ x: w, y: r })), borderColor: acc, borderWidth: 3, pointRadius: ov[cur].length < 3 ? 4 : 0, pointBackgroundColor: acc });
   charts.ov?.destroy();
+  if (!seasons.length) return;
+  const cur = seasons[seasons.length - 1], past = seasons.slice(0, -1);
+  const acc = COLOR[disease];
+  const ds = past.map((s, i) => ({ label: s, data: ov[s].map(([w, r]) => ({ x: w, y: r })), borderColor: `rgba(100,116,139,${(0.25 + 0.55 * (i + 1) / past.length).toFixed(2)})`, borderWidth: 1.5, pointRadius: 0, tension: 0.25 }));
+  ds.push({ label: `${cur} (current)`, data: ov[cur].map(([w, r]) => ({ x: w, y: r })), borderColor: acc, borderWidth: 3, pointRadius: ov[cur].length < 4 ? 4 : 0, pointBackgroundColor: acc, tension: 0.25 });
   charts.ov = new Chart($("ov"), { type: "line", data: { datasets: ds }, options: { responsive: true, maintainAspectRatio: false, animation: false,
     interaction: { mode: "nearest", intersect: false, axis: "x" },
-    plugins: { legend: { display: false }, tooltip: { ...tip(), callbacks: { title: (i) => `Week ${i[0].parsed.x} of season`, label: (c) => ` ${c.dataset.label}: ${c.parsed.y.toFixed(2)} per 100k` } } },
+    plugins: { legend: { display: false }, tooltip: { ...tip, callbacks: { title: (i) => `Week ${i[0].parsed.x} of season`, label: (c) => `${c.dataset.label}: ${c.parsed.y.toFixed(2)} per 100k` } } },
     scales: { x: { ...axes().x, type: "linear", min: 1, max: 53, ticks: { ...axes().x.ticks, stepSize: 13, callback: (v) => ({ 1: "Oct", 14: "Jan", 27: "Apr", 40: "Jul", 53: "Sep" })[v] ?? "" } }, y: axes("Per 100k").y } } });
-  $("ovTitle").textContent = `${loc === "US" ? "United States" : status(disease)[loc]?.name}: this season vs past seasons`;
-  $("ovLegend").innerHTML = `<span><i class="line" style="background:${acc}"></i>${cur} (current)</span><span><i class="line" style="background:${grey}"></i>Past seasons (darker = more recent)</span>`;
+  $("ovTitle").textContent = `This season vs past seasons · ${locName(loc)}`;
+  $("ovLegend").innerHTML = `<span><i class="line" style="background:${acc}"></i>${cur} (current)</span><span><i class="line" style="background:#94a3b8"></i>Past seasons, darker = more recent</span>`;
 }
 
 function drawAlerts() {
-  const rows = Object.values(status(disease)).filter((s) => s.level === "state" && s.signal).sort((a, b) => b.z - a.z);
-  $("alerts").innerHTML = rows.length ? "<thead><tr><th>State</th><th class='num'>Admissions</th><th class='num'>Baseline</th><th class='num'>z</th><th>Level</th></tr></thead><tbody>" +
-    rows.map((s) => `<tr data-loc="${s.location}"><td>${s.name}</td><td class="num">${fmt(s.admissions)}</td><td class="num">${fmt(s.baseline)}</td>
-      <td class="num"><span class="pill sig">${s.z.toFixed(1)}</span></td><td><span class="lvl" style="background:var(${LV[s.activity_level]})"></span>${s.activity_level}</td></tr>`).join("") + "</tbody>"
-    : "<tbody><tr><td>No state has an unusual increase this week.</td></tr></tbody>";
+  const r = states().filter((s) => s.signal).sort((a, b) => b.z - a.z);
+  $("alerts").innerHTML = r.length ? "<thead><tr><th>State</th><th class='n'>Admissions</th><th class='n'>Expected</th><th class='n'>z-score</th><th>Level</th></tr></thead><tbody>" +
+    r.map((s) => `<tr class="click" data-loc="${s.location}"><td>${s.name}</td><td class="n">${fmt(s.admissions)}</td><td class="n">${fmt(s.baseline)}</td>
+      <td class="n"><span class="pill sig">${s.z.toFixed(1)}</span></td><td><span class="sq" style="background:var(${LV[s.activity_level]})"></span>${s.activity_level}</td></tr>`).join("") + "</tbody>"
+    : `<tbody><tr><td class="empty">No state has an unusual increase this week.</td></tr></tbody>`;
 }
 $("alerts").addEventListener("click", (e) => { const r = e.target.closest("tr[data-loc]"); if (r) select(r.dataset.loc); });
 
 function drawSkill() {
   const s = D.skill;
-  $("skill").innerHTML = "<thead><tr><th>Disease</th><th class='num'>1 wk</th><th class='num'>2 wk</th><th class='num'>3 wk</th><th class='num'>4 wk</th><th class='num'>50% interval covers</th><th class='num'>80% interval covers</th></tr></thead><tbody>" +
-    ["flu", "covid"].map((d) => `<tr><td>${NAME[d]}</td>${[1, 2, 3, 4].map((h) => `<td class="num">${s[d][h].rel.toFixed(2)}</td>`).join("")}<td class="num">${Math.round(s[d].cov50 * 100)}%</td><td class="num">${Math.round(s[d].cov80 * 100)}%</td></tr>`).join("") + "</tbody>";
-  $("sources").innerHTML = "Sources: " + D.sources.map((s) => `<a href="${s.url}">${s.source}</a>`).join(" · ") + ` (CDC NHSN via the CDC FluSight and COVID-19 forecast hubs).`;
+  const cell = (v) => `<td class="n"><span class="skillbar" style="width:${Math.round(v * 60)}px;background:${v < 1 ? "var(--down)" : "var(--up)"}"></span>${v.toFixed(2)}</td>`;
+  $("skill").innerHTML = "<thead><tr><th>Disease</th><th class='n'>1 week ahead</th><th class='n'>2 weeks</th><th class='n'>3 weeks</th><th class='n'>4 weeks</th><th class='n'>50% interval coverage</th><th class='n'>80% interval coverage</th></tr></thead><tbody>" +
+    ["flu", "covid"].map((d) => `<tr><td><span class="sq" style="background:var(--${d})"></span>${NAME[d]}</td>${[1, 2, 3, 4].map((h) => cell(s[d][h].rel)).join("")}
+      <td class="n">${Math.round(s[d].cov50 * 100)}%</td><td class="n">${Math.round(s[d].cov80 * 100)}%</td></tr>`).join("") + "</tbody>";
+  $("sources").innerHTML = "Sources: " + D.sources.map((x) => `<a href="${x.url}">${x.source}</a>`).join(" · ") +
+    " (CDC NHSN via the CDC FluSight and COVID-19 forecast hubs). State boundaries: US Census Bureau via us-atlas.";
 }
 
-function select(l) { loc = l; drawMap(); drawSeries(); drawOverlay(); }
+function fillSelect() {
+  const opts = [["US", "United States"], ...states().map((s) => [s.location, s.name]).sort((a, b) => a[1].localeCompare(b[1]))];
+  $("locSel").innerHTML = opts.map(([v, n]) => `<option value="${v}">${n}</option>`).join("");
+}
+$("locSel").addEventListener("change", (e) => select(e.target.value));
+
+function select(l) {
+  loc = status()[l] ? l : "US";
+  $("locSel").value = loc;
+  header(); kpis(); drawMap(); drawTrend(); drawOverlay();
+}
 $("disease").addEventListener("click", (e) => {
   const b = e.target.closest("button"); if (!b) return;
   disease = b.dataset.d;
   try { localStorage.setItem("surv-disease", disease); } catch (err) {}
-  if (!status(disease)[loc]) loc = "US";
   render();
 });
-function render() { header(); drawMap(); drawSeries(); drawOverlay(); drawAlerts(); }
+function render() { fillSelect(); select(loc); drawRank(); drawLevels(); drawAlerts(); }
 drawSkill(); render();
-const rethemed = () => { drawSeries(); drawOverlay(); };
-matchMedia("(prefers-color-scheme: dark)").addEventListener("change", rethemed);
-new MutationObserver(rethemed).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 </script>
 </body>
 </html>

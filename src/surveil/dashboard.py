@@ -61,7 +61,7 @@ def build_data(warehouse: Path = WAREHOUSE) -> dict:
             a = latest_alert.loc[r.location] if r.location in latest_alert.index else None
             st[r.location] = {"location": r.location, "state": r.state, "name": r.name, "level": r.level,
                               "admissions": _num(r.admissions, 0), "rate": _num(r.rate_per_100k), "pct_change_1wk": _num(r.pct_change_1wk),
-                              "activity_level": r.activity_level, "trend": r.trend,
+                              "activity_level": r.activity_level, "trend": r.trend, "growth": _num(r.growth_2wk),
                               "signal": bool(a.signal) if a is not None else False,
                               "z": _num(a.z, 2) if a is not None else None,
                               "baseline": _num(a.baseline_mean, 0) if a is not None else None}
