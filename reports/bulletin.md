@@ -69,6 +69,6 @@ below 1 is better):
 
 | Source | Fetched (UTC) |
 |---|---|
-| [flu](https://raw.githubusercontent.com/cdcepi/FluSight-forecast-hub/main/target-data/target-hospital-admissions.csv) | 2026-10-15 00:22 |
-| [covid](https://raw.githubusercontent.com/CDCgov/covid19-forecast-hub/main/target-data/covid-hospital-admissions.csv) | 2026-10-15 00:22 |
-| [locations](https://raw.githubusercontent.com/cdcepi/FluSight-forecast-hub/main/auxiliary-data/locations.csv) | 2026-10-15 00:22 |
+| [flu](https://raw.githubusercontent.com/cdcepi/FluSight-forecast-hub/main/target-data/target-hospital-admissions.csv) | 2026-10-15 00:05 |
+| [covid](https://raw.githubusercontent.com/CDCgov/covid19-forecast-hub/main/target-data/covid-hospital-admissions.csv) | 2026-10-15 00:05 |
+| [locations](https://raw.githubusercontent.com/cdcepi/FluSight-forecast-hub/main/auxiliary-data/locations.csv) | 2026-10-15 00:05 |

@@ -55,11 +55,16 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; justify-content: space-between; }
 .note { font-size: 12.5px; color: var(--ink-3); }
 .main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 16px; }
-.map { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; }
-.tile { aspect-ratio: 1; max-width: 100%; border: 0; border-radius: 6px; font: 700 12px/1 var(--f-body); cursor: pointer; display: grid; place-content: center; gap: 2px; text-align: center; position: relative; padding: 0; }
-.tile small { font-size: 9px; font-weight: 400; }
-.tile.sig::after { content: ""; position: absolute; top: 4px; right: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--signal); box-shadow: 0 0 0 2px var(--surface); }
-.tile[aria-pressed="true"] { outline: 3px solid var(--ink); outline-offset: 1px; }
+.map { width: 100%; height: auto; display: block; }
+.map .st { stroke: var(--surface); stroke-width: 0.8; cursor: pointer; transition: opacity .15s; }
+.map .st:hover { opacity: 0.82; }
+.map .st.sel { stroke: var(--ink); stroke-width: 2.5; }
+.map .lab { font: 700 10.5px var(--f-body); pointer-events: none; text-anchor: middle; dominant-baseline: central; }
+.map .box { stroke: var(--surface); stroke-width: 0.8; cursor: pointer; }
+.map .box.sel { stroke: var(--ink); stroke-width: 2.5; }
+.map .lead { stroke: var(--ink-3); stroke-width: 0.6; }
+.map .sig { fill: var(--signal); stroke: var(--surface); stroke-width: 1.5; pointer-events: none; }
+.map .st:focus-visible, .map .box:focus-visible { outline: none; stroke: var(--ink); stroke-width: 2.5; }
 .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12.5px; color: var(--ink-2); align-items: center; }
 .legend span { display: inline-flex; gap: 6px; align-items: center; }
 .legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
@@ -81,7 +86,7 @@ tbody tr:hover td { background: var(--bg); }
 footer { font-size: 12.5px; color: var(--ink-3); display: grid; gap: 4px; }
 a { color: var(--accent); }
 @media (max-width: 1000px) { .main, .grid2 { grid-template-columns: 1fr; } .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .kpi .v { font-size: 20px; } .tile { font-size: 9px; border-radius: 4px; } .tile small { display: none; } .map { gap: 2px; } }
+@media (max-width: 560px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .kpi .v { font-size: 20px; } }
 </style>
 </head>
 <body>
@@ -104,8 +109,8 @@ a { color: var(--accent); }
 
   <div class="main">
     <section class="panel">
-      <div class="head"><h2 id="mapTitle">Activity by state</h2><span class="note">Select a state</span></div>
-      <div class="map" id="map"></div>
+      <div class="head"><h2 id="mapTitle">Activity by state</h2><span class="note">Hover for details, click a state to explore</span></div>
+      <svg class="map" id="map" viewBox="0 0 1010 610" role="group" aria-label="Map of US states colored by activity level"></svg>
       <div class="legend" id="mapLegend"></div>
     </section>
     <section class="panel">
@@ -178,28 +183,53 @@ function header() {
   document.querySelectorAll("#disease button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.d === disease));
 }
 
+// small north-eastern states get labelled boxes in a column to the right, with leader lines
+const CALLOUTS = ["50", "33", "25", "44", "09", "34", "10", "24", "11"];
 function drawMap() {
   const st = status(disease);
-  const cells = [];
-  for (let r = 0; r < 8; r++) for (let c = 0; c < 12; c++) cells.push(null);
-  for (const [abbr, [r, c]] of Object.entries(D.tiles)) cells[r * 12 + c] = abbr;
   const arrow = { Increasing: "▲", Decreasing: "▼", Stable: "●" };
-  $("map").innerHTML = cells.map((abbr) => {
-    if (!abbr) return "<div></div>";
-    const s = Object.values(st).find((x) => x.state === abbr);
-    if (!s) return `<div class="tile" style="background:var(--l0);color:var(--ink-3)">${abbr}</div>`;
-    const lvl = LEVELS.indexOf(s.activity_level);
-    const fg = lvl >= 2 ? "#fff" : "var(--ink)";
-    return `<button type="button" class="tile ${s.signal ? "sig" : ""}" data-loc="${s.location}" aria-pressed="${s.location === loc}"
-      style="background:var(${LV[s.activity_level]});color:${fg}" title="${s.name}: ${s.activity_level}, ${s.trend.toLowerCase()}, ${s.rate.toFixed(2)} per 100k${s.signal ? ", signal" : ""}">${abbr}<small>${arrow[s.trend]}</small></button>`;
-  }).join("");
+  const fill = (s) => s ? `var(${LV[s.activity_level]})` : "var(--l0)";
+  const ink = (s) => s && LEVELS.indexOf(s.activity_level) >= 2 ? "#fff" : "var(--ink)";
+  const tip = (s, name) => s ? `${s.name}: ${s.activity_level}, ${s.trend.toLowerCase()}, ${fmt(s.admissions)} admissions (${s.rate.toFixed(2)} per 100k)${s.signal ? ", unusual increase" : ""}` : `${name}: no data`;
+  const parts = [];
+  for (const [fips, g] of Object.entries(D.geo)) {
+    const s = st[fips];
+    parts.push(`<path class="st ${fips === loc ? "sel" : ""}" data-loc="${fips}" d="${g.d}" style="fill:${fill(s)}" tabindex="0" role="button" aria-label="${tip(s, g.name)}"><title>${tip(s, g.name)}</title></path>`);
+  }
+  const sel = D.geo[loc];
+  if (sel) parts.push(`<path class="st sel" d="${sel.d}" style="fill:none;pointer-events:none"></path>`);  // selected outline on top
+  for (const [fips, g] of Object.entries(D.geo)) {
+    const s = st[fips];
+    if (CALLOUTS.includes(fips) || !s) continue;
+    const [x, y] = g.label;
+    parts.push(`<text class="lab" x="${x}" y="${y}" style="fill:${ink(s)}">${s.state}${g.size > 40 ? " " + arrow[s.trend] : ""}</text>`);
+    if (s.signal) parts.push(`<circle class="sig" cx="${x + (g.size > 40 ? 17 : 11)}" cy="${y - 8}" r="4"></circle>`);
+  }
+  CALLOUTS.forEach((fips, i) => {
+    const s = st[fips], g = D.geo[fips];
+    if (!g) return;
+    const bx = 958, by = 150 + i * 30;
+    parts.push(`<line class="lead" x1="${g.label[0]}" y1="${g.label[1]}" x2="${bx}" y2="${by + 11}"></line>`);
+    parts.push(`<rect class="box ${fips === loc ? "sel" : ""}" data-loc="${fips}" x="${bx}" y="${by}" width="44" height="22" rx="4" style="fill:${fill(s)}" tabindex="0" role="button" aria-label="${tip(s, g.name)}"><title>${tip(s, g.name)}</title></rect>`);
+    if (s) parts.push(`<text class="lab" x="${bx + 22}" y="${by + 11}" style="fill:${ink(s)}">${s.state} ${arrow[s.trend]}</text>`);
+    if (s?.signal) parts.push(`<circle class="sig" cx="${bx + 44}" cy="${by}" r="4"></circle>`);
+  });
+  // Puerto Rico inset
+  const pr = st["72"];
+  if (pr) {
+    parts.push(`<rect class="box ${loc === "72" ? "sel" : ""}" data-loc="72" x="870" y="560" width="44" height="22" rx="4" style="fill:${fill(pr)}" tabindex="0" role="button" aria-label="${tip(pr, "Puerto Rico")}"><title>${tip(pr, "Puerto Rico")}</title></rect>`);
+    parts.push(`<text class="lab" x="892" y="571" style="fill:${ink(pr)}">PR ${arrow[pr.trend]}</text>`);
+    if (pr.signal) parts.push(`<circle class="sig" cx="914" cy="560" r="4"></circle>`);
+  }
+  $("map").innerHTML = parts.join("");
   $("mapTitle").textContent = `${NAME[disease]} activity by state`;
   $("mapLegend").innerHTML = LEVELS.map((l) => `<span><i style="background:var(${LV[l]})"></i>${l}</span>`).join("") +
-    `<span>▲ rising ● stable ▼ falling</span><span><i style="background:var(--signal);border-radius:50%;width:8px;height:8px"></i>signal</span>`;
+    `<span>▲ rising ● stable ▼ falling</span><span><i style="background:var(--signal);border-radius:50%;width:8px;height:8px"></i>unusual increase</span>`;
   if (loc !== "US") $("mapLegend").innerHTML += `<span><button type="button" id="usBtn" style="font:inherit;font-size:12.5px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:2px 8px;cursor:pointer">Show United States</button></span>`;
   $("usBtn")?.addEventListener("click", () => select("US"));
 }
-$("map").addEventListener("click", (e) => { const b = e.target.closest("button[data-loc]"); if (b) select(b.dataset.loc); });
+$("map").addEventListener("click", (e) => { const t = e.target.closest("[data-loc]"); if (t) select(t.dataset.loc); });
+$("map").addEventListener("keydown", (e) => { if (e.key !== "Enter" && e.key !== " ") return; const t = e.target.closest("[data-loc]"); if (t) { e.preventDefault(); select(t.dataset.loc); } });
 
 const charts = {};
 function axes(yTitle) {

@@ -125,6 +125,7 @@ src/surveil/
   quality.py     integrity and freshness checks
   report.py      weekly bulletin and figures
   dashboard.py   self-contained HTML dashboard for GitHub Pages
+  geo/           US state outlines as SVG paths (built once from us-atlas)
 sql/             mart definitions
 dashboard/       dashboard template
 tests/           MMWR calendar, marts, alerts, WIS and forecasting tests on real-data fixtures
@@ -139,4 +140,5 @@ tests/           MMWR calendar, marts, alerts, WIS and forecasting tests on real
 
 ## License
 
-MIT for the code. Data from CDC is in the public domain.
+MIT for the code. Data from CDC is in the public domain. State boundaries come from
+[us-atlas](https://github.com/topojson/us-atlas) (ISC license, derived from US Census Bureau cartographic boundaries).

@@ -20,7 +20,6 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
 from .config import REPORTS_DIR, WAREHOUSE  # noqa: E402
-from .tiles import TILES  # noqa: E402
 
 log = logging.getLogger(__name__)
 FIG = REPORTS_DIR / "figures"
@@ -81,24 +80,58 @@ def fig_season_overlay(w: pd.DataFrame, disease: str) -> Path:
     return _save(fig, f"season_overlay_{disease}.png")
 
 
-def fig_tile_map(status: pd.DataFrame, disease: str) -> Path:
-    s = status[(status.disease == disease) & (status.level == "state")].set_index("state")
-    fig, ax = plt.subplots(figsize=(9, 5.6))
+GEO = Path(__file__).with_name("geo") / "us_states.json"
+CALLOUTS = ["50", "33", "25", "44", "09", "34", "10", "24", "11"]  # small north-eastern states, labelled at the side
+
+
+def _rings(d: str) -> list[np.ndarray]:
+    return [np.array([[float(v) for v in pt.split(",")] for pt in part.rstrip("Z").split("L")])
+            for part in d.split("M") if part]
+
+
+def fig_activity_map(status: pd.DataFrame, disease: str) -> Path:
+    import json
+
+    from matplotlib.patches import Polygon, Rectangle
+    geo = json.loads(GEO.read_text())
+    s = status[(status.disease == disease) & (status.level == "state")].set_index("location")
     arrow = {"Increasing": "▲", "Decreasing": "▼", "Stable": "●"}
-    for st, (r, c) in TILES.items():
-        lvl = s.activity_level.get(st, None)
-        col = LEVEL_COLORS.get(lvl, "#f2f2f0")
-        ax.add_patch(plt.Rectangle((c, -r), 0.92, 0.92, color=col, lw=0))
-        txt = "white" if lvl in ("High", "Very high") else INK
-        ax.text(c + 0.46, -r + 0.58, st, ha="center", va="center", fontsize=9, fontweight="bold", color=txt)
-        if st in s.index:
-            ax.text(c + 0.46, -r + 0.26, arrow.get(s.trend[st], ""), ha="center", va="center", fontsize=7, color=txt)
-    ax.set_xlim(-0.2, 12.2)
-    ax.set_ylim(-7.3, 1.1)
+    fig, ax = plt.subplots(figsize=(10, 6.4))
+
+    def colors(fips):
+        lvl = s.activity_level.get(fips)
+        return LEVEL_COLORS.get(lvl, "#f2f2f0"), ("white" if lvl in ("High", "Very high") else INK)
+
+    for fips, g in geo.items():
+        fc, _ = colors(fips)
+        for r in _rings(g["d"]):
+            ax.add_patch(Polygon(r, closed=True, facecolor=fc, edgecolor="white", lw=0.6))
+    for fips, g in geo.items():
+        if fips in CALLOUTS or fips not in s.index:
+            continue
+        _, tc = colors(fips)
+        x, y = g["label"]
+        label = s.state[fips] + (" " + arrow[s.trend[fips]] if g["size"] > 40 else "")
+        ax.text(x, y, label, ha="center", va="center", fontsize=7.5, fontweight="bold", color=tc)
+    for i, fips in enumerate(CALLOUTS):
+        if fips not in s.index:
+            continue
+        fc, tc = colors(fips)
+        bx, by = 958, 150 + i * 30
+        ax.plot([geo[fips]["label"][0], bx], [geo[fips]["label"][1], by + 11], color=MUTED, lw=0.6)
+        ax.add_patch(Rectangle((bx, by), 44, 22, facecolor=fc, edgecolor="white"))
+        ax.text(bx + 22, by + 11, f"{s.state[fips]} {arrow[s.trend[fips]]}", ha="center", va="center", fontsize=7.5,
+                fontweight="bold", color=tc)
+    if "72" in s.index:
+        fc, tc = colors("72")
+        ax.add_patch(Rectangle((870, 560), 44, 22, facecolor=fc, edgecolor="white"))
+        ax.text(892, 571, f"PR {arrow[s.trend['72']]}", ha="center", va="center", fontsize=7.5, fontweight="bold", color=tc)
+    ax.set_xlim(0, 1010)
+    ax.set_ylim(625, 0)
     ax.set_aspect("equal")
     ax.axis("off")
-    handles = [plt.Rectangle((0, 0), 1, 1, color=v) for v in LEVEL_COLORS.values()]
-    ax.legend(handles, LEVEL_COLORS.keys(), loc="lower center", bbox_to_anchor=(0.5, -0.08), ncol=4, fontsize=9,
+    handles = [Rectangle((0, 0), 1, 1, color=v) for v in LEVEL_COLORS.values()]
+    ax.legend(handles, LEVEL_COLORS.keys(), loc="lower center", bbox_to_anchor=(0.5, -0.1), ncol=4, fontsize=9,
               title="Activity (3-week average vs history)   ▲ increasing  ● stable  ▼ decreasing", title_fontsize=8.5)
     week = pd.to_datetime(s.week_end.iloc[0]).strftime("%b %d, %Y")
     ax.set_title(f"{LABEL[disease]} activity by state, week ending {week}", loc="left")
@@ -175,7 +208,7 @@ def build(warehouse: Path = WAREHOUSE) -> str:
     con.close()
 
     figs = [fig_national(w), fig_season_overlay(w, "flu"), fig_season_overlay(w, "covid"),
-            fig_tile_map(status, "flu"), fig_tile_map(status, "covid"), fig_forecast(w, fc),
+            fig_activity_map(status, "flu"), fig_activity_map(status, "covid"), fig_forecast(w, fc),
             fig_backtest(bt), fig_peak_timing(pt)]
 
     lines = []

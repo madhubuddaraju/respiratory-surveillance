@@ -16,7 +16,8 @@ import duckdb
 import pandas as pd
 
 from .config import QUANTILES, ROOT, WAREHOUSE
-from .tiles import TILES
+
+GEO = Path(__file__).with_name("geo") / "us_states.json"
 
 log = logging.getLogger(__name__)
 TEMPLATE = ROOT / "dashboard" / "template.html"
@@ -43,7 +44,7 @@ def build_data(warehouse: Path = WAREHOUSE) -> dict:
     w["week_end"] = pd.to_datetime(w.week_end).dt.strftime("%Y-%m-%d")
     al["week_end"] = pd.to_datetime(al.week_end).dt.strftime("%Y-%m-%d")
 
-    data = {"generated": datetime.now(UTC).strftime("%b %d, %Y"), "tiles": TILES,
+    data = {"generated": datetime.now(UTC).strftime("%b %d, %Y"), "geo": json.loads(GEO.read_text()),
             "dq_passed": int(dq.passed.sum()), "dq_total": len(dq),
             "sources": sources.to_dict("records"), "diseases": {}, "weeks": {}, "series": {}, "status": {},
             "forecasts": {}, "signals": {}, "overlay": {}, "skill": {}}
