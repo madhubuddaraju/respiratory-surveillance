@@ -1,10 +1,10 @@
 # US Respiratory Disease Surveillance
 
-![CI](https://github.com/madhubuddaraju/respiratory-surveillance/actions/workflows/ci.yml/badge.svg)
-![Weekly update](https://github.com/madhubuddaraju/respiratory-surveillance/actions/workflows/weekly.yml/badge.svg)
+![CI](https://github.com/subbarajubuddaraju/respiratory-surveillance/actions/workflows/ci.yml/badge.svg)
+![Weekly update](https://github.com/subbarajubuddaraju/respiratory-surveillance/actions/workflows/weekly.yml/badge.svg)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 
-**Live dashboard: [madhubuddaraju.github.io/respiratory-surveillance](https://madhubuddaraju.github.io/respiratory-surveillance/)**
+**Live dashboard: [subbarajubuddaraju.github.io/respiratory-surveillance](https://subbarajubuddaraju.github.io/respiratory-surveillance/)**
 · **This week's bulletin: [`reports/bulletin.md`](reports/bulletin.md)**
 
 An automated public-health surveillance system for **influenza and COVID-19 hospital admissions** in all 50
@@ -103,7 +103,7 @@ flowchart LR
 ## Run it
 
 ```bash
-git clone https://github.com/madhubuddaraju/respiratory-surveillance.git
+git clone https://github.com/subbarajubuddaraju/respiratory-surveillance.git
 cd respiratory-surveillance
 python -m venv .venv && source .venv/bin/activate
 make install
