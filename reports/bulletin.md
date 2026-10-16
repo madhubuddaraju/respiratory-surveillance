@@ -1,6 +1,6 @@
 # US respiratory surveillance bulletin
 
-_Week ending October 10, 2026. Generated 2026-10-15 by
+_Week ending October 10, 2026. Generated 2026-10-16 by
 `python -m surveil.report` from CDC NHSN hospital admissions. 7/7 data checks passed._
 
 ## This week
@@ -69,6 +69,6 @@ below 1 is better):
 
 | Source | Fetched (UTC) |
 |---|---|
-| [flu](https://raw.githubusercontent.com/cdcepi/FluSight-forecast-hub/main/target-data/target-hospital-admissions.csv) | 2026-10-15 00:05 |
-| [covid](https://raw.githubusercontent.com/CDCgov/covid19-forecast-hub/main/target-data/covid-hospital-admissions.csv) | 2026-10-15 00:05 |
-| [locations](https://raw.githubusercontent.com/cdcepi/FluSight-forecast-hub/main/auxiliary-data/locations.csv) | 2026-10-15 00:05 |
+| [flu](https://raw.githubusercontent.com/cdcepi/FluSight-forecast-hub/main/target-data/target-hospital-admissions.csv) | 2026-10-16 18:13 |
+| [covid](https://raw.githubusercontent.com/CDCgov/covid19-forecast-hub/main/target-data/covid-hospital-admissions.csv) | 2026-10-16 18:13 |
+| [locations](https://raw.githubusercontent.com/cdcepi/FluSight-forecast-hub/main/auxiliary-data/locations.csv) | 2026-10-16 18:13 |
